@@ -31,3 +31,6 @@
 [submodule "bundle/speeddating"]
 	path = bundle/speeddating
 	url = https://github.com/tpope/vim-speeddating.git
+[submodule "bundle/vim/ruby"]
+	path = bundle/vim/ruby
+	url = https://github.com/vim-ruby/vim-ruby
