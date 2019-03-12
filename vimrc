@@ -1,6 +1,8 @@
 syntax on
 filetype plugin indent on
 
+execute pathogen#infect()
+
 set nocompatible
 
 " remember more commands and search history
@@ -39,9 +41,10 @@ endif
 " clear menu and such
 if has("gui_running")
 	set guifont=Terminus\ 12
-  colorscheme slate
   set guioptions=
 endif
 
+colorscheme OceanicNext
 
-execute pathogen#infect()
+noremap <F12> :NERDTreeToggle
+
