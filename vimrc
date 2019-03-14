@@ -3,6 +3,9 @@ filetype plugin indent on
 
 execute pathogen#infect()
 
+" matchit comes builtin by default. This enables it.
+packadd! matchit
+
 set nocompatible
 
 " remember more commands and search history
