@@ -1,6 +1,8 @@
 syntax on
 filetype plugin indent on
 
+execute pathogen#infect()
+
 set nocompatible
 
 " remember more commands and search history
@@ -22,26 +24,24 @@ set showmatch
 noremap [q :cprevious
 noremap ]q :cnext
 
-" The Silver Searcher
-if executable('ag')
-  " Use ag over grep
-  set grepprg=ag\ --nogroup\ --nocolor
-
-  " Use ag in CtrlP for listing files. Lightning fast and respects .gitignore
-  let g:ctrlp_user_command = 'ag %s -l --nocolor -g ""'
-
-  " ag is fast enough that CtrlP doesn't need to cache
-  let g:ctrlp_use_caching = 0
+if executable('rg')
+  set grepprg=rg\ --vimgrep
 endif
 
+if executable('fd')
+  let g:ctrlp_user_command = 'fd'
+  " fd is fast enough for no caching
+  let g:ctrlp_use_caching = 0
+endif
 
 " GUI
 " clear menu and such
 if has("gui_running")
-	set guifont=Terminus\ 12
-  colorscheme slate
+	set guifont=Anonymous\ Pro\ 12
   set guioptions=
 endif
 
+colorscheme OceanicNext
 
-execute pathogen#infect()
+noremap <F12> :NERDTreeToggle
+
