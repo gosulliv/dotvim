@@ -22,7 +22,7 @@ endif
 function! rustfmt#DetectVersion()
     " Save rustfmt '--help' for feature inspection
     silent let s:rustfmt_help = system(g:rustfmt_command . " --help")
-    let s:rustfmt_unstable_features = 1 - (s:rustfmt_help !~# "--unstable-features")
+    let s:rustfmt_unstable_features = s:rustfmt_help =~# "--unstable-features"
 
     " Build a comparable rustfmt version varible out of its `--version` output:
     silent let l:rustfmt_version_full = system(g:rustfmt_command . " --version")
@@ -43,7 +43,7 @@ if !exists("g:rustfmt_emit_files")
 endif
 
 if !exists("g:rustfmt_file_lines")
-    let g:rustfmt_file_lines = 1 - (s:rustfmt_help !~# "--file-lines JSON")
+    let g:rustfmt_file_lines = s:rustfmt_help =~# "--file-lines JSON"
 endif
 
 let s:got_fmt_error = 0
@@ -84,11 +84,9 @@ function! s:RustfmtCommandRange(filename, line1, line2)
     let l:write_mode = s:RustfmtWriteMode()
     let l:rustfmt_config = s:RustfmtConfig()
 
-    " FIXME: When --file-lines gets to be stable, enhance this version range checking
+    " FIXME: When --file-lines gets to be stable, add version range checking
     " accordingly.
-    let l:unstable_features = 
-                \ (s:rustfmt_unstable_features && (s:rustfmt_version < '1.'))
-                \ ? '--unstable-features' : ''
+    let l:unstable_features = s:rustfmt_unstable_features ? '--unstable-features' : ''
 
     let l:cmd = printf("%s %s %s %s %s --file-lines '[%s]' %s", g:rustfmt_command,
                 \ l:write_mode, g:rustfmt_options,
@@ -112,10 +110,12 @@ function! s:DeleteLines(start, end) abort
     silent! execute a:start . ',' . a:end . 'delete _'
 endfunction
 
-function! s:RunRustfmt(command, tmpname, fail_silently)
+function! s:RunRustfmt(command, tmpname, from_writepre)
     mkview!
 
     let l:stderr_tmpname = tempname()
+    call writefile([], l:stderr_tmpname)
+
     let l:command = a:command . ' 2> ' . l:stderr_tmpname
 
     if a:tmpname ==# ''
@@ -145,9 +145,12 @@ function! s:RunRustfmt(command, tmpname, fail_silently)
 
     call delete(l:stderr_tmpname)
 
+    let l:open_lwindow = 0
     if v:shell_error == 0
-        " remove undo point caused via BufWritePre
-        try | silent undojoin | catch | endtry
+        if a:from_writepre
+            " remove undo point caused via BufWritePre
+            try | silent undojoin | catch | endtry
+        endif
 
         if a:tmpname ==# ''
             let l:content = l:out
@@ -165,9 +168,9 @@ function! s:RunRustfmt(command, tmpname, fail_silently)
         if s:got_fmt_error
             let s:got_fmt_error = 0
             call setloclist(0, [])
-            lwindow
+            let l:open_lwindow = 1
         endif
-    elseif g:rustfmt_fail_silently == 0 && a:fail_silently == 0
+    elseif g:rustfmt_fail_silently == 0 && !a:from_writepre
         " otherwise get the errors and put them in the location list
         let l:errors = []
 
@@ -197,7 +200,7 @@ function! s:RunRustfmt(command, tmpname, fail_silently)
         endif
 
         let s:got_fmt_error = 1
-        lwindow
+        let l:open_lwindow = 1
     endif
 
     " Restore the current directory if needed
@@ -209,6 +212,11 @@ function! s:RunRustfmt(command, tmpname, fail_silently)
         endif
     endif
 
+    " Open lwindow after we have changed back to the previous directory
+    if l:open_lwindow == 1
+        lwindow
+    endif
+
     silent! loadview
 endfunction
 
@@ -216,12 +224,12 @@ function! rustfmt#FormatRange(line1, line2)
     let l:tmpname = tempname()
     call writefile(getline(1, '$'), l:tmpname)
     let command = s:RustfmtCommandRange(l:tmpname, a:line1, a:line2)
-    call s:RunRustfmt(command, l:tmpname, 0)
+    call s:RunRustfmt(command, l:tmpname, v:false)
     call delete(l:tmpname)
 endfunction
 
 function! rustfmt#Format()
-    call s:RunRustfmt(s:RustfmtCommand(), '', 0)
+    call s:RunRustfmt(s:RustfmtCommand(), '', v:false)
 endfunction
 
 function! rustfmt#Cmd()
@@ -230,10 +238,18 @@ function! rustfmt#Cmd()
 endfunction
 
 function! rustfmt#PreWrite()
+    if !filereadable(expand("%@"))
+        return
+    endif
     if rust#GetConfigVar('rustfmt_autosave_if_config_present', 0)
         if findfile('rustfmt.toml', '.;') !=# '' || findfile('.rustfmt.toml', '.;') !=# ''
             let b:rustfmt_autosave = 1
-            let b:rustfmt_autosave_because_of_config = 1
+            let b:_rustfmt_autosave_because_of_config = 1
+        endif
+    else
+        if has_key(b:, '_rustfmt_autosave_because_of_config')
+            unlet b:_rustfmt_autosave_because_of_config
+            unlet b:rustfmt_autosave
         endif
     endif
 
@@ -241,7 +257,7 @@ function! rustfmt#PreWrite()
         return
     endif
 
-    call s:RunRustfmt(s:RustfmtCommand(), '', 1)
+    call s:RunRustfmt(s:RustfmtCommand(), '', v:true)
 endfunction
 
 
