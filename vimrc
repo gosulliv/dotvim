@@ -49,4 +49,5 @@ abbreviate rtst mod tests {#[test]fn test() {}}
 
 
 au BufNewFile,BufRead *.s,*.S set filetype=arm " arm = armv6/7
+au BufNewFile,BufRead Vagrantfile set filetype=ruby
 
